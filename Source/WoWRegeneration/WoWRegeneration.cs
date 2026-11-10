@@ -23,6 +23,14 @@ namespace WoWRegeneration
             {
                 EntryPointNewSession();
             }
+            else if (RepositoriesManager.GetRepositoryByMfil(previousSession.MFil) == null)
+            {
+                // A session from another build (for example the 4.3.4 version of this tool).
+                Program.Log("Ignoring an unfinished session for " + previousSession.WoWRepositoryName +
+                            ", which this version cannot download.", ConsoleColor.DarkYellow);
+                Program.Log();
+                EntryPointNewSession();
+            }
             else
             {
                 if (!UserInputs.SelectContinueSession(previousSession))
@@ -74,7 +82,7 @@ namespace WoWRegeneration
             // The client executables are Windows files; the MPQ data is shared by both systems.
             if (CurrentSession.Os == "Win")
             {
-                if (!ClientFiles.Download(aria2, Path.GetFullPath(repository.GetDefaultDirectory())))
+                if (!ClientFiles.Build(repository, Path.GetFullPath(repository.GetDefaultDirectory())))
                 {
                     Program.Log("Client files are incomplete. Run the program again to retry.", ConsoleColor.Red);
                     return;

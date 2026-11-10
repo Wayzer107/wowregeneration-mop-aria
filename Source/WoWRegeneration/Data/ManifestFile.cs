@@ -49,6 +49,7 @@ namespace WoWRegeneration.Data
                         }
                     }
                 }
+                tmp.Add("All");
                 return tmp;
             }
             return null;
@@ -69,6 +70,7 @@ namespace WoWRegeneration.Data
                         continue;
                     file.Url = line;
                     file.Info = GetFileInfo(repository, line);
+                    file.Tags = GetFileTags(repository, line);
                     if (IsAcceptedFile(repository, file))
                         tmp.Add(file);
                 }
@@ -79,13 +81,7 @@ namespace WoWRegeneration.Data
 
         private bool IsAcceptedFile(WoWRepository repository, FileObject file)
         {
-            if (WoWRegeneration.CurrentSession.Os == "Win" && file.Filename == "base-OSX.MPQ")
-                return false;
-
-            if (WoWRegeneration.CurrentSession.Os == "OSX" && file.Filename == "base-Win.MPQ")
-                return false;
-
-            if (file.Filename == "alternate.MPQ" && WoWRegeneration.CurrentSession.Locale != "All" && file.Info != WoWRegeneration.CurrentSession.Locale)
+            if (Version == 3 ? !IsAcceptedByTags(file) : !IsAcceptedByPath(file))
                 return false;
 
             if (WoWRegeneration.CurrentSession.CompletedFiles.Contains(file.Path) &&
@@ -100,6 +96,39 @@ namespace WoWRegeneration.Data
                 WoWRegeneration.CurrentSession.CompletedFiles.Remove(file.Path);
                 WoWRegeneration.CurrentSession.SaveSession();
             }
+
+            return true;
+        }
+
+        /// <summary>
+        ///     Version 3 manifests tag each file: base and EXPn data, ALT (alternate.MPQ), an OS
+        ///     (Win, OSX) or a locale. A file is wanted when every OS and locale tag it carries
+        ///     matches the session.
+        /// </summary>
+        private bool IsAcceptedByTags(FileObject file)
+        {
+            Session session = WoWRegeneration.CurrentSession;
+            foreach (string tag in file.Tags)
+            {
+                if ((tag == "Win" || tag == "OSX") && tag != session.Os)
+                    return false;
+
+                if (!LocaleDetectLineVersion3IgnoredTags.Contains(tag) && session.Locale != "All" && tag != session.Locale)
+                    return false;
+            }
+            return true;
+        }
+
+        private bool IsAcceptedByPath(FileObject file)
+        {
+            if (WoWRegeneration.CurrentSession.Os == "Win" && file.Filename == "base-OSX.MPQ")
+                return false;
+
+            if (WoWRegeneration.CurrentSession.Os == "OSX" && file.Filename == "base-Win.MPQ")
+                return false;
+
+            if (file.Filename == "alternate.MPQ" && WoWRegeneration.CurrentSession.Locale != "All" && file.Info != WoWRegeneration.CurrentSession.Locale)
+                return false;
 
             if (file.Directory == "Data/")
             {
@@ -118,6 +147,20 @@ namespace WoWRegeneration.Data
             return false;
         }
 
+        private List<string> GetFileTags(WoWRepository repository, string line)
+        {
+            var tags = new List<string>();
+            for (int index = Lines.IndexOf(line) + 1; index < Lines.Count; index++)
+            {
+                string next = Lines[index];
+                if (IsLineARepositorFile(repository, next) || next.StartsWith("serverpath="))
+                    break;
+                if (next.StartsWith(LocaleDetectLineVersion3))
+                    tags.Add(next.Substring(LocaleDetectLineVersion3.Length));
+            }
+            return tags;
+        }
+
         private string GetFilePath(string line)
         {
             int index = Lines.IndexOf(line);
@@ -131,7 +174,7 @@ namespace WoWRegeneration.Data
         private string GetFileInfo(WoWRepository repository, string line)
         {
             int index = Lines.IndexOf(line);
-            for (int n = 1; n <= 5; n++)
+            for (int n = 1; n <= 5 && index + n < Lines.Count; n++)
             {
                 string next = Lines[index + n];
                 if (IsLineARepositorFile(repository, next))

@@ -1,4 +1,6 @@
-﻿namespace WoWRegeneration.Data
+﻿using System.Collections.Generic;
+
+namespace WoWRegeneration.Data
 {
     public class FileObject
     {
@@ -7,6 +9,9 @@
 
         public string Path { get; set; }
         public string Info { get; set; }
+
+        /// <summary>The file's tag= values (version 3 manifests).</summary>
+        public List<string> Tags { get; set; } = new List<string>();
 
         public string Directory
         {
